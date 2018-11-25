@@ -35,7 +35,7 @@
 		}
 
 		public function displayPublishPanel(XMLElement &$wrapper, $data = null, $flagWithError = null, $fieldnamePrefix = null, $fieldnamePostfix = null, $entry_id = null){
-			$value = General::sanitize(base64_encode($data['value']));
+			$value = General::sanitize($data['value']);
 			$label = Widget::Label($this->get('label'));
 
 			if(empty($value)) {
@@ -115,10 +115,12 @@
 	        // The result comprises the IV and encrypted data
 	        $res = $iv . $encrypted;
 
-	        return $res;
+	        return base64_encode($res);
 		}
 
 		function decrypt($raw) {
+
+			base64_decode($raw);
 
 			// and do an integrity check on the size.
 	        if (strlen($raw) < $this->iv_num_bytes)
