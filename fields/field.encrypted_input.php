@@ -35,7 +35,7 @@
 		}
 
 		public function displayPublishPanel(XMLElement &$wrapper, $data = null, $flagWithError = null, $fieldnamePrefix = null, $fieldnamePostfix = null, $entry_id = null){
-			$value = General::sanitize($data['value']);
+			$value = General::sanitize(base64_encode($data['value']));
 			$label = Widget::Label($this->get('label'));
 
 			if(empty($value)) {
@@ -48,7 +48,7 @@
 			    }
 			} else {
 				$wrapper->setAttribute('class', $wrapper->getAttribute('class') . ' file');
-			    $label->appendChild(new XMLElement('span', 'Encrypted: ' . $value, array('class' => 'frame')));
+			    $label->appendChild(new XMLElement('span', 'Encrypted: ' . $this->decrypt($data['value']), array('class' => 'frame')));
 			    $label->appendChild(Widget::Input('fields'.$fieldnamePrefix.'['.$this->get('element_name').']'.$fieldnamePostfix, 'encrypted:' . $value, 'hidden'));
 			    $wrapper->appendChild($label);
 			}
@@ -61,6 +61,7 @@
 			$value = $this->decrypt($data['value']);
 
 			$xml = new XMLElement($this->get('element_name'), General::sanitize($value));
+			// var_dump($xml->generate());die;
 			$wrapper->appendChild($xml);
 		}
 
@@ -115,12 +116,10 @@
 	        // The result comprises the IV and encrypted data
 	        $res = $iv . $encrypted;
 
-	        return base64_encode($res);
+	        return $res;
 		}
 
 		function decrypt($raw) {
-
-			base64_decode($raw);
 
 			// and do an integrity check on the size.
 	        if (strlen($raw) < $this->iv_num_bytes)
