@@ -39,18 +39,18 @@
 			$label = Widget::Label($this->get('label'));
 
 			if(empty($value)) {
-			    if($this->get('required') != 'yes') $label->appendChild(new XMLElement('i', __('Optional')));
-			    $label->appendChild(Widget::Input('fields'.$fieldnamePrefix.'['.$this->get('element_name').']'.$fieldnamePostfix, (strlen($value) != 0 ? $value : null)));
-			    if($flagWithError != null) {
-			        $wrapper->appendChild(Widget::Error($label, $flagWithError));
-			    } else {
-			        $wrapper->appendChild($label);
-			    }
+				if($this->get('required') != 'yes') $label->appendChild(new XMLElement('i', __('Optional')));
+				$label->appendChild(Widget::Input('fields'.$fieldnamePrefix.'['.$this->get('element_name').']'.$fieldnamePostfix, (strlen($value) != 0 ? $value : null)));
+				if($flagWithError != null) {
+					$wrapper->appendChild(Widget::Error($label, $flagWithError));
+				} else {
+					$wrapper->appendChild($label);
+				}
 			} else {
 				$wrapper->setAttribute('class', $wrapper->getAttribute('class') . ' file');
-			    $label->appendChild(new XMLElement('span', 'Encrypted: ' . $this->decrypt($data['value']), array('class' => 'frame')));
-			    $label->appendChild(Widget::Input('fields'.$fieldnamePrefix.'['.$this->get('element_name').']'.$fieldnamePostfix, 'encrypted:' . $value, 'hidden'));
-			    $wrapper->appendChild($label);
+				$label->appendChild(new XMLElement('span', 'Encrypted: ' . $this->decrypt($data['value']), array('class' => 'frame')));
+				$label->appendChild(Widget::Input('fields'.$fieldnamePrefix.'['.$this->get('element_name').']'.$fieldnamePostfix, 'encrypted:' . $value, 'hidden'));
+				$wrapper->appendChild($label);
 			}
 
 		}
@@ -85,14 +85,14 @@
 			// has already been encrypted
 			if(preg_match("/^encrypted:/", $data)) {
 				$data = preg_replace("/^encrypted:/", '', $data);
-			    return array(
-    				'value' => base64_decode($data),
-    			);
+				return array(
+					'value' => base64_decode($data),
+				);
 			}
 			else {
-			    return array(
-    				'value' => $this->encrypt($data),
-    			);
+				return array(
+					'value' => $this->encrypt($data),
+				);
 			}
 
 		}
@@ -100,48 +100,68 @@
 		function encrypt($string) {
 
 			// Build an initialisation vector
-	        $iv = openssl_random_pseudo_bytes($this->iv_num_bytes, $isStrongCrypto);
-	        if (!$isStrongCrypto) {
-	            throw new \Exception("Cryptor::encryptString() - Not a strong key");
-	        }
-	        // Hash the key
-	        $keyhash = openssl_digest($this->key, $this->hash_algo, true);
-	        // and encrypt
-	        $opts =  OPENSSL_RAW_DATA;
-	        $encrypted = openssl_encrypt($string, $this->cipher_algo, $keyhash, $opts, $iv);
-	        if ($encrypted === false)
-	        {
-	            throw new \Exception('Cryptor::encryptString() - Encryption failed: ' . openssl_error_string());
-	        }
-	        // The result comprises the IV and encrypted data
-	        $res = $iv . $encrypted;
+			$iv = openssl_random_pseudo_bytes($this->iv_num_bytes, $isStrongCrypto);
+			if (!$isStrongCrypto) {
+				throw new \Exception("Cryptor::encryptString() - Not a strong key");
+			}
+			// Hash the key
+			$keyhash = openssl_digest($this->key, $this->hash_algo, true);
+			// and encrypt
+			$opts =  OPENSSL_RAW_DATA;
+			$encrypted = openssl_encrypt($string, $this->cipher_algo, $keyhash, $opts, $iv);
+			if ($encrypted === false)
+			{
+				throw new \Exception('Cryptor::encryptString() - Encryption failed: ' . openssl_error_string());
+			}
+			// The result comprises the IV and encrypted data
+			$res = $iv . $encrypted;
 
-	        return $res;
+			// store in hex not binary due to compatibility issues
+			return unpack("H*string",$res)['string'];
 		}
 
 		function decrypt($raw) {
 
-			// and do an integrity check on the size.
-	        if (strlen($raw) < $this->iv_num_bytes)
-	        {
-	            throw new \Exception('Cryptor::decryptString() - ' .
-	                'data length ' . strlen($raw) . " is less than iv length {$this->iv_num_bytes}");
-	        }
-	        // Extract the initialisation vector and encrypted data
-	        $iv = substr($raw, 0, $this->iv_num_bytes);
-	        $raw = substr($raw, $this->iv_num_bytes);
-	        // Hash the key
-	        $keyhash = openssl_digest($this->key, $this->hash_algo, true);
-	        // and decrypt.
-	        $opts = OPENSSL_RAW_DATA;
-	        $res = openssl_decrypt($raw, $this->cipher_algo, $keyhash, $opts, $iv);
-	        if ($res === false)
-	        {
-	            throw new \Exception('Cryptor::decryptString - decryption failed: ' . openssl_error_string());
-	        }
-	        return $res;
 
-	    }
+			if (ctype_xdigit($raw)){
+				$raw = pack("H*",$raw);
+			} else {
+				// update legacy content that is still stored in binary not hex
+				$unpacked = unpack("H*string",$raw)['string'];
+
+				$cleanRaw = MySQL::cleanValue($raw);
+
+				$updated = Symphony::Database()->update(
+					array('value' => $unpacked),
+					'tbl_entries_data_' . $this->get('id'),
+					"value = '{$cleanRaw}'"
+				);
+
+				var_dump($updated);die;
+			}
+
+			// and do an integrity check on the size.
+			if (strlen($raw) < $this->iv_num_bytes)
+			{
+				throw new \Exception('Cryptor::decryptString() - ' .
+					'data length ' . strlen($raw) . " is less than iv length {$this->iv_num_bytes}");
+			}
+			// Extract the initialisation vector and encrypted data
+			$iv = substr($raw, 0, $this->iv_num_bytes);
+			$raw = substr($raw, $this->iv_num_bytes);
+			// Hash the key
+
+			$keyhash = openssl_digest($this->key, $this->hash_algo, true);
+			// and decrypt.	
+			$opts = OPENSSL_RAW_DATA;
+			$res = openssl_decrypt($raw, $this->cipher_algo, $keyhash, $opts, $iv);
+			if ($res === false)
+			{
+				throw new \Exception('Cryptor::decryptString - decryption failed: ' . openssl_error_string());
+			}
+			return $res;
+
+		}
 
 
 		function decrypt_legacy($string) {
