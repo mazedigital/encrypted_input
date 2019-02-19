@@ -136,8 +136,6 @@
 					'tbl_entries_data_' . $this->get('id'),
 					"value = '{$cleanRaw}'"
 				);
-
-				var_dump($updated);die;
 			}
 
 			// and do an integrity check on the size.
